@@ -46,7 +46,6 @@ python 05_model_comparison.py
 advent/
 ├── README.md                     # このファイル
 ├── requirements.txt              # 必要なライブラリ
-├── article.md                    # Qiita用の記事
 │
 ├── 01_generate_dummy_data.py     # ダミーデータ生成
 ├── 02_preprocessing_eda.py       # 前処理・EDA
@@ -54,16 +53,7 @@ advent/
 ├── 04_lightgbm_forecast.py       # LightGBM予測
 ├── 05_model_comparison.py        # モデル比較
 │
-├── apparel_sales_data.csv        # (生成) 元データ
-├── apparel_sales_preprocessed.csv # (生成) 前処理済みデータ
-├── prophet_predictions.csv       # (生成) Prophet予測結果
-├── lightgbm_predictions.csv      # (生成) LightGBM予測結果
-├── model_comparison_results.csv  # (生成) 比較結果
-│
 └── figures/                      # (生成) 可視化グラフ
-    ├── 01_time_series.png
-    ├── 02_seasonality.png
-    ├── 03_distribution.png
     ├── ...
 ```
 
