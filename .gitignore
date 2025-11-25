@@ -1,0 +1,11 @@
+/apparel_sales_data.csv
+/apparel_sales_preprocessed.csv
+/article.md
+/figures
+/lightgbm_metrics.csv
+/lightgbm_predictions.csv
+/model_comparison_results.csv
+/prophet_metrics.csv
+/prophet_predictions.csv
+/venv
+/venvconda
