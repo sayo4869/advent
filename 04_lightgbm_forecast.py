@@ -1,5 +1,5 @@
 """
-LightGBM による時系列予測
+LightGBM による小売売上の時系列予測
 〜ラグ特徴量で過去から未来を学ぶ〜
 
 ⚠️ 重要なポイント：
@@ -412,11 +412,11 @@ def plot_lightgbm_results(
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("🌲 LightGBM による売上予測")
+    print("🌲 LightGBM による小売売上予測")
     print("=" * 60)
 
     # データ読み込み
-    df = pd.read_csv("apparel_sales_preprocessed.csv")
+    df = pd.read_csv("retail_sales_preprocessed.csv")
     df['date'] = pd.to_datetime(df['date'])
 
     # 特徴量を準備

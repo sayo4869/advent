@@ -1,5 +1,5 @@
 """
-前処理 & EDA（探索的データ分析）
+小売売上データの前処理 & EDA（探索的データ分析）
 〜データと仲良くなる時間〜
 """
 
@@ -324,7 +324,7 @@ def summary_report(df: pd.DataFrame) -> None:
 def main():
     """メイン処理"""
     # データ読み込みと前処理
-    df = load_and_preprocess("apparel_sales_data.csv")
+    df = load_and_preprocess("retail_sales_data.csv")
 
     # 基本統計量
     basic_statistics(df)
@@ -343,8 +343,8 @@ def main():
     summary_report(df)
 
     # 前処理済みデータを保存
-    df.to_csv("apparel_sales_preprocessed.csv", index=False, encoding="utf-8")
-    print("\n✅ 前処理済みデータを apparel_sales_preprocessed.csv に保存しました")
+    df.to_csv("retail_sales_preprocessed.csv", index=False, encoding="utf-8")
+    print("\n✅ 前処理済みデータを retail_sales_preprocessed.csv に保存しました")
 
     return df
 

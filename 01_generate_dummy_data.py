@@ -1,5 +1,5 @@
 """
-アパレル会社の売上ダミーデータ生成スクリプト
+小売店の売上ダミーデータ生成スクリプト
 〜リアルな季節性とイベント効果を盛り込んだ2年弱分のデータ〜
 """
 
@@ -10,13 +10,13 @@ from datetime import datetime, timedelta
 # 再現性のためシードを固定（推しの番号でもOK）
 np.random.seed(42)
 
-def generate_apparel_sales_data(
+def generate_retail_sales_data(
     start_date: str = "2022-01-01",
     end_date: str = "2023-10-31",
     base_sales: float = 1000000
 ) -> pd.DataFrame:
     """
-    アパレル会社の日次売上データを生成
+    小売店の日次売上データを生成
 
     Parameters
     ----------
@@ -42,14 +42,14 @@ def generate_apparel_sales_data(
     trend = np.linspace(0, 0.1, n_days)
 
     # === 2. 年間季節性 ===
-    # アパレルは春夏と秋冬で大きく変わる
+    # 小売は季節イベントで売上が変動
     day_of_year = np.array([d.timetuple().tm_yday for d in dates])
 
-    # 春物（3-4月）、夏物セール（7-8月）、秋冬物（10-11月）、冬セール（1月）がピーク
+    # 新生活（3-4月）、夏セール（7-8月）、年末商戦（11-12月）がピーク
     seasonal_yearly = (
-        0.15 * np.sin(2 * np.pi * (day_of_year - 30) / 365)  # 春のピーク
+        0.15 * np.sin(2 * np.pi * (day_of_year - 30) / 365)   # 春のピーク
         + 0.20 * np.sin(2 * np.pi * (day_of_year - 200) / 365)  # 夏セール
-        + 0.10 * np.sin(2 * np.pi * (day_of_year - 300) / 365)  # 秋冬
+        + 0.15 * np.sin(2 * np.pi * (day_of_year - 340) / 365)  # 年末商戦
     )
 
     # === 3. 週次季節性 ===
@@ -169,11 +169,11 @@ def generate_apparel_sales_data(
 def main():
     """メイン処理"""
     print("=" * 50)
-    print("🧥 アパレル売上ダミーデータ生成中...")
+    print("🏪 小売売上ダミーデータ生成中...")
     print("=" * 50)
 
     # データ生成
-    df = generate_apparel_sales_data()
+    df = generate_retail_sales_data()
 
     # 基本情報を表示
     print(f"\n📅 データ期間: {df['date'].min()} 〜 {df['date'].max()}")
@@ -191,7 +191,7 @@ def main():
         print(f"   - {event}: ¥{sales:,.0f}")
 
     # CSVに保存
-    output_path = "apparel_sales_data.csv"
+    output_path = "retail_sales_data.csv"
     df.to_csv(output_path, index=False, encoding="utf-8")
     print(f"\n✅ データを {output_path} に保存しました！")
 

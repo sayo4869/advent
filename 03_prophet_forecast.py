@@ -1,5 +1,5 @@
 """
-Prophet による時系列予測
+Prophet による小売売上の時系列予測
 〜Meta社のライブラリで未来を占う〜
 """
 
@@ -38,7 +38,7 @@ def prepare_data_for_prophet(df: pd.DataFrame) -> pd.DataFrame:
 
 def create_japanese_holidays() -> pd.DataFrame:
     """
-    日本のアパレルに関連するイベントを定義
+    日本の小売に関連するイベントを定義
 
     Prophetはholidayとして外部イベントを考慮できる
     """
@@ -311,11 +311,11 @@ def cross_validation_prophet(model: Prophet, df: pd.DataFrame) -> pd.DataFrame:
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("🔮 Prophet による売上予測")
+    print("🔮 Prophet による小売売上予測")
     print("=" * 60)
 
     # データ読み込み
-    df = pd.read_csv("apparel_sales_preprocessed.csv")
+    df = pd.read_csv("retail_sales_preprocessed.csv")
     df['date'] = pd.to_datetime(df['date'])
 
     # Prophet用に整形
