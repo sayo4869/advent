@@ -85,7 +85,7 @@ def load_and_preprocess(filepath: str) -> pd.DataFrame:
 
 
 def basic_statistics(df: pd.DataFrame) -> None:
-    """基本統計量の表示"""
+    """基本統計量の表示とヒストグラム"""
     print("\n" + "=" * 50)
     print("📈 売上の基本統計量")
     print("=" * 50)

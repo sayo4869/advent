@@ -42,10 +42,10 @@ def create_japanese_holidays() -> pd.DataFrame:
 
     Prophetはholidayとして外部イベントを考慮できる
     """
-    # 2022年と2023年のイベント
+    # 2022年〜2025年のイベント
     holidays = []
 
-    for year in [2022, 2023]:
+    for year in [2022, 2023, 2024, 2025]:
         # 初売り
         for day in range(1, 4):
             holidays.append({

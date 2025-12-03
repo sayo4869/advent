@@ -12,7 +12,7 @@ np.random.seed(42)
 
 def generate_retail_sales_data(
     start_date: str = "2022-01-01",
-    end_date: str = "2023-10-31",
+    end_date: str = "2025-11-30",
     base_sales: float = 1000000
 ) -> pd.DataFrame:
     """
@@ -38,7 +38,7 @@ def generate_retail_sales_data(
     n_days = len(dates)
 
     # === 1. トレンド成分 ===
-    # 緩やかな成長トレンド（年率5%成長くらい）
+    # 緩やかな成長トレンド（期間終了時に+10%）
     trend = np.linspace(0, 0.1, n_days)
 
     # === 2. 年間季節性 ===

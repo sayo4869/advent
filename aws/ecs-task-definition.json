@@ -1,0 +1,54 @@
+{
+  "family": "sales-forecast-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "forecast-container",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sales-forecast:latest",
+      "essential": true,
+      "environment": [
+        {
+          "name": "S3_INPUT_BUCKET",
+          "value": "${S3_BUCKET}"
+        },
+        {
+          "name": "S3_INPUT_KEY",
+          "value": "data/retail_sales_preprocessed.csv"
+        },
+        {
+          "name": "S3_OUTPUT_BUCKET",
+          "value": "${S3_BUCKET}"
+        },
+        {
+          "name": "S3_OUTPUT_PREFIX",
+          "value": "forecasts/"
+        },
+        {
+          "name": "S3_MODEL_BUCKET",
+          "value": "${S3_BUCKET}"
+        },
+        {
+          "name": "S3_MODEL_KEY",
+          "value": "models/lightgbm_model.pkl"
+        },
+        {
+          "name": "PREDICTION_DAYS",
+          "value": "30"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sales-forecast",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "forecast"
+        }
+      }
+    }
+  ]
+}

@@ -12,7 +12,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import lightgbm as lgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from typing import Tuple, Dict, List
 import warnings
 import japanize_matplotlib
 
@@ -29,7 +28,7 @@ def mean_absolute_percentage_error(y_true: np.ndarray, y_pred: np.ndarray) -> fl
 def create_lag_features(
     df: pd.DataFrame,
     target_col: str = 'sales',
-    lag_days: List[int] = None
+    lag_days: list[int] = None
 ) -> pd.DataFrame:
     """
     ラグ特徴量を作成
@@ -44,7 +43,7 @@ def create_lag_features(
         入力データ
     target_col : str
         ターゲット列名
-    lag_days : List[int]
+    lag_days : list[int]
         ラグの日数リスト
 
     Returns
@@ -70,7 +69,7 @@ def create_lag_features(
 def create_rolling_features(
     df: pd.DataFrame,
     target_col: str = 'sales',
-    windows: List[int] = None
+    windows: list[int] = None
 ) -> pd.DataFrame:
     """
     ローリング特徴量（移動統計量）を作成
@@ -84,7 +83,7 @@ def create_rolling_features(
         入力データ
     target_col : str
         ターゲット列名
-    windows : List[int]
+    windows : list[int]
         ウィンドウサイズのリスト
 
     Returns
@@ -204,7 +203,7 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
 def train_test_split_timeseries(
     df: pd.DataFrame,
     test_days: int = 60
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     時系列データを学習・テストに分割
 
@@ -220,7 +219,7 @@ def train_test_split_timeseries(
     return train_df, test_df
 
 
-def get_feature_columns(df: pd.DataFrame) -> List[str]:
+def get_feature_columns(df: pd.DataFrame) -> list[str]:
     """
     特徴量として使用するカラムを取得
 
@@ -239,7 +238,7 @@ def get_feature_columns(df: pd.DataFrame) -> List[str]:
 
 def train_lightgbm(
     train_df: pd.DataFrame,
-    feature_cols: List[str],
+    feature_cols: list[str],
     target_col: str = 'sales'
 ) -> lgb.LGBMRegressor:
     """
@@ -249,7 +248,7 @@ def train_lightgbm(
     ----------
     train_df : pd.DataFrame
         学習データ
-    feature_cols : List[str]
+    feature_cols : list[str]
         特徴量カラム
     target_col : str
         ターゲットカラム
@@ -313,9 +312,9 @@ def train_lightgbm(
 def evaluate_lightgbm(
     model: lgb.LGBMRegressor,
     test_df: pd.DataFrame,
-    feature_cols: List[str],
+    feature_cols: list[str],
     target_col: str = 'sales'
-) -> Tuple[pd.DataFrame, Dict[str, float]]:
+) -> tuple[pd.DataFrame, dict[str, float]]:
     """
     LightGBMモデルを評価
     """
@@ -354,7 +353,7 @@ def evaluate_lightgbm(
 
 def plot_feature_importance(
     model: lgb.LGBMRegressor,
-    feature_cols: List[str],
+    feature_cols: list[str],
     save_path: str = "figures/"
 ) -> None:
     """特徴量重要度をプロット"""

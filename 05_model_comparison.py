@@ -6,8 +6,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from typing import Dict
+from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_score
 import warnings
 import japanize_matplotlib
 
@@ -21,8 +20,9 @@ def mean_absolute_percentage_error(y_true: np.ndarray, y_pred: np.ndarray) -> fl
     return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
 
 
-def load_predictions() -> Dict[str, pd.DataFrame]:
+def load_predictions() -> dict[str, pd.DataFrame]:
     """各モデルの予測結果を読み込む"""
+    import os
     predictions = {}
 
     # Prophet
@@ -37,20 +37,27 @@ def load_predictions() -> Dict[str, pd.DataFrame]:
     lgb_df = lgb_df.rename(columns={'sales': 'actual'})
     predictions['LightGBM'] = lgb_df
 
+    # Chronos（存在する場合）
+    if os.path.exists("chronos_predictions.csv"):
+        chronos_df = pd.read_csv("chronos_predictions.csv")
+        chronos_df['date'] = pd.to_datetime(chronos_df['date'])
+        chronos_df = chronos_df.rename(columns={'sales': 'actual'})
+        predictions['Chronos'] = chronos_df
+
     return predictions
 
 
-def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """評価指標を計算"""
     return {
-        'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)),
+        'RMSE': root_mean_squared_error(y_true, y_pred),
         'MAE': mean_absolute_error(y_true, y_pred),
         'MAPE': mean_absolute_percentage_error(y_true, y_pred),
         'R2': r2_score(y_true, y_pred)
     }
 
 
-def compare_models(predictions: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+def compare_models(predictions: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """モデル間の比較"""
     print("=" * 60)
     print("📊 モデル比較")
@@ -76,7 +83,7 @@ def compare_models(predictions: Dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 
 def plot_comparison(
-    predictions: Dict[str, pd.DataFrame],
+    predictions: dict[str, pd.DataFrame],
     metrics_df: pd.DataFrame,
     save_path: str = "figures/"
 ) -> None:
@@ -93,7 +100,7 @@ def plot_comparison(
             label='実績', linewidth=2, color='black', marker='o', markersize=3)
 
     # 各モデルの予測
-    colors = {'Prophet': '#ff6b6b', 'LightGBM': '#4dabf7'}
+    colors = {'Prophet': '#ff6b6b', 'LightGBM': '#4dabf7', 'Chronos': '#51cf66'}
     for model_name, df in predictions.items():
         ax.plot(df['date'], df['prediction'],
                 label=f'{model_name}予測', linewidth=2,
@@ -187,7 +194,7 @@ def plot_comparison(
     print(f"\n✅ 比較グラフを保存しました")
 
 
-def analyze_by_segment(predictions: Dict[str, pd.DataFrame]) -> None:
+def analyze_by_segment(predictions: dict[str, pd.DataFrame]) -> None:
     """セグメント別の分析"""
     print("\n" + "=" * 60)
     print("📊 セグメント別分析")

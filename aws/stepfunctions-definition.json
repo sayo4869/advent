@@ -1,0 +1,75 @@
+{
+  "Comment": "Sales Forecast Batch Pipeline",
+  "StartAt": "RunForecastTask",
+  "States": {
+    "RunForecastTask": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Parameters": {
+        "LaunchType": "FARGATE",
+        "Cluster": "${ECS_CLUSTER_ARN}",
+        "TaskDefinition": "${TASK_DEFINITION_ARN}",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SUBNET_1}", "${SUBNET_2}"],
+            "SecurityGroups": ["${SECURITY_GROUP}"],
+            "AssignPublicIp": "ENABLED"
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "forecast-container",
+              "Environment": [
+                {
+                  "Name": "PREDICTION_DAYS",
+                  "Value.$": "States.Format('{}', $.prediction_days)"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": "$.taskResult",
+      "Next": "CheckTaskStatus",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckTaskStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.taskResult.Containers[0].ExitCode",
+          "NumericEquals": 0,
+          "Next": "NotifySuccess"
+        }
+      ],
+      "Default": "NotifyFailure"
+    },
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNS_TOPIC_ARN}",
+        "Subject": "✅ Sales Forecast Completed",
+        "Message.$": "States.Format('Forecast job completed successfully.\\nRun ID: {}\\nPrediction days: {}', $.taskResult.TaskArn, $.prediction_days)"
+      },
+      "End": true
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNS_TOPIC_ARN}",
+        "Subject": "❌ Sales Forecast Failed",
+        "Message.$": "States.Format('Forecast job failed.\\nError: {}', $.error)"
+      },
+      "End": true
+    }
+  }
+}
