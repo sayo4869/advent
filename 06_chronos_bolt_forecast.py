@@ -1,24 +1,27 @@
 """
-Chronos による小売売上の時系列予測
-〜Transformerベースの時系列基盤モデル〜
+Chronos-Bolt による小売売上の時系列予測
+〜高速版Transformerベースの時系列基盤モデル〜
 
-Chronos: Amazon が開発した事前学習済み時系列予測モデル
-- T5アーキテクチャベース
+Chronos-Bolt: Amazon が開発した高速版時系列予測モデル
+- 従来のChronosより最大250倍高速
+- T5アーキテクチャベース（最適化済み）
 - ゼロショット予測が可能
 - 特徴量エンジニアリング不要
 
 モデルサイズ比較:
-- tiny:  8M params（軽量、高速）
-- small: 46M params（バランス良い）
-- base:  200M params（高精度）
-- large: 710M params（最高精度）
+- tiny:  9M params（超軽量、超高速）
+- mini:  21M params（軽量、高速）
+- small: 48M params（バランス良い）
+- base:  205M params（高精度）
+
+必要なライブラリ:
+    pip install chronos-forecasting>=1.4.0
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from chronos import ChronosPipeline
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
 import japanize_matplotlib
@@ -27,15 +30,18 @@ import gc
 
 warnings.filterwarnings('ignore')
 
+# chronos-forecasting 2.x 対応
+from chronos import BaseChronosPipeline
+
 # 比較するモデルサイズ
-MODEL_SIZES = ["tiny", "small", "base", "large"]
+MODEL_SIZES = ["tiny", "mini", "small", "base"]
 
 # モデルのパラメータ数（参考）
 MODEL_PARAMS = {
-    "tiny": "8M",
-    "small": "46M",
-    "base": "200M",
-    "large": "710M"
+    "tiny": "9M",
+    "mini": "21M",
+    "small": "48M",
+    "base": "205M"
 }
 
 
@@ -56,27 +62,28 @@ def get_device() -> str:
         return "cpu"
 
 
-def load_chronos_model(model_size: str, device: str) -> ChronosPipeline:
+def load_chronos_bolt_model(model_size: str, device: str):
     """
-    Chronosモデルをロード
+    Chronos-Boltモデルをロード
 
     Parameters
     ----------
     model_size : str
-        モデルサイズ: "tiny", "small", "base", "large"
+        モデルサイズ: "tiny", "mini", "small", "base"
     device : str
         デバイス: "cuda", "mps", "cpu"
 
     Returns
     -------
-    ChronosPipeline
+    BaseChronosPipeline
         ロード済みモデル
     """
-    model_name = f"amazon/chronos-t5-{model_size}"
+    model_name = f"amazon/chronos-bolt-{model_size}"
 
-    print(f"\n🤖 Chronos-{model_size} ({MODEL_PARAMS[model_size]}) をロード中...")
+    print(f"\n⚡ Chronos-Bolt-{model_size} ({MODEL_PARAMS[model_size]}) をロード中...")
 
-    pipeline = ChronosPipeline.from_pretrained(
+    # chronos-forecasting 2.x ではBaseChronosPipelineで統一
+    pipeline = BaseChronosPipeline.from_pretrained(
         model_name,
         device_map=device,
         torch_dtype=torch.float32,
@@ -90,7 +97,7 @@ def prepare_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     データを学習・テストに分割
 
-    Chronosは特徴量エンジニアリング不要！
+    Chronos-Boltは特徴量エンジニアリング不要！
     時系列データをそのまま渡すだけ
     """
     df = df.copy()
@@ -107,37 +114,46 @@ def prepare_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return train_df, test_df
 
 
-def predict_with_chronos(
-    pipeline: ChronosPipeline,
+def predict_with_chronos_bolt(
+    pipeline,
     train_df: pd.DataFrame,
-    prediction_length: int,
-    num_samples: int = 20
+    prediction_length: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Chronosで予測
+    Chronos-Boltで予測
+
+    Chronos-Boltは分位点（quantiles）を直接出力する決定論的モデル。
+    chronos-forecasting 2.x API対応
+
+    デフォルトの分位点: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray, np.ndarray]
-        予測値（中央値）、下限、上限
+        予測値（中央値）、下限（10%）、上限（90%）
     """
     # 時系列データをtensorに変換
     context = torch.tensor(train_df['sales'].values, dtype=torch.float32)
 
-    # 予測実行
+    # chronos-forecasting 2.x: predict() はデフォルトの分位点で出力
+    # デフォルト: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     forecast = pipeline.predict(
         context,
         prediction_length=prediction_length,
-        num_samples=num_samples,
     )
 
     # numpy配列に変換
     forecast_np = forecast.numpy()
 
-    # 中央値と予測区間を計算
-    median = np.median(forecast_np, axis=1).squeeze()
-    lower = np.percentile(forecast_np, 2.5, axis=1).squeeze()
-    upper = np.percentile(forecast_np, 97.5, axis=1).squeeze()
+    # 形状: (batch, quantiles, horizon) -> squeeze batch
+    if forecast_np.ndim == 3:
+        forecast_np = forecast_np.squeeze(0)  # (quantiles, horizon)
+
+    # デフォルト分位点 [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    # index: 0=10%, 4=50%(中央値), 8=90%
+    lower = forecast_np[0]   # 10%
+    median = forecast_np[4]  # 50%（中央値）
+    upper = forecast_np[8]   # 90%
 
     return median, lower, upper
 
@@ -172,28 +188,27 @@ def run_all_models(
 
     for model_size in MODEL_SIZES:
         print("\n" + "=" * 50)
-        print(f"📊 Chronos-{model_size} ({MODEL_PARAMS[model_size]})")
+        print(f"⚡ Chronos-Bolt-{model_size} ({MODEL_PARAMS[model_size]})")
         print("=" * 50)
 
         start_time = time.time()
 
         # モデルロード
-        pipeline = load_chronos_model(model_size, device)
+        pipeline = load_chronos_bolt_model(model_size, device)
 
         # 予測
         print(f"   🔮 {len(test_df)}日間の予測を実行中...")
-        predictions, lower, upper = predict_with_chronos(
+        predictions, lower, upper = predict_with_chronos_bolt(
             pipeline,
             train_df,
-            prediction_length=len(test_df),
-            num_samples=20
+            prediction_length=len(test_df)
         )
 
         elapsed = time.time() - start_time
 
         # 評価
         metrics = evaluate_model(test_df['sales'].values, predictions)
-        metrics['model'] = f"Chronos-{model_size}"
+        metrics['model'] = f"Bolt-{model_size}"
         metrics['params'] = MODEL_PARAMS[model_size]
         metrics['time_sec'] = round(elapsed, 1)
 
@@ -238,9 +253,9 @@ def plot_all_models_comparison(
 
     colors = {
         'tiny': '#ff6b6b',
-        'small': '#feca57',
-        'base': '#48dbfb',
-        'large': '#5f27cd'
+        'mini': '#feca57',
+        'small': '#48dbfb',
+        'base': '#5f27cd'
     }
 
     # === 1. 時系列比較（全モデル） ===
@@ -253,17 +268,17 @@ def plot_all_models_comparison(
     # 各モデルの予測
     for model_size, results in all_predictions.items():
         ax.plot(results['date'], results['prediction'],
-                label=f'Chronos-{model_size} ({MODEL_PARAMS[model_size]})',
+                label=f'Bolt-{model_size} ({MODEL_PARAMS[model_size]})',
                 linewidth=2, linestyle='--', color=colors[model_size])
 
-    ax.set_title('Chronos モデルサイズ別 予測比較', fontsize=14, fontweight='bold')
+    ax.set_title('Chronos-Bolt モデルサイズ別 予測比較', fontsize=14, fontweight='bold')
     ax.set_xlabel('日付')
     ax.set_ylabel('売上（円）')
     ax.legend(loc='upper left')
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(f"{save_path}14_chronos_all_sizes_timeseries.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"{save_path}22_bolt_all_sizes_timeseries.png", dpi=150, bbox_inches='tight')
     plt.close()
 
     # === 2. 評価指標の比較 ===
@@ -297,14 +312,14 @@ def plot_all_models_comparison(
             ax.set_ylabel('誤差（低いほど良い）')
 
     plt.tight_layout()
-    plt.savefig(f"{save_path}14_chronos_all_sizes_metrics.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"{save_path}22_bolt_all_sizes_metrics.png", dpi=150, bbox_inches='tight')
     plt.close()
 
     # === 3. 精度 vs 実行時間のトレードオフ ===
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for model_size in MODEL_SIZES:
-        row = metrics_df[metrics_df['model'] == f"Chronos-{model_size}"].iloc[0]
+        row = metrics_df[metrics_df['model'] == f"Bolt-{model_size}"].iloc[0]
         ax.scatter(row['time_sec'], row['R2'],
                    s=200, color=colors[model_size],
                    label=f'{model_size} ({MODEL_PARAMS[model_size]})', zorder=5)
@@ -313,12 +328,12 @@ def plot_all_models_comparison(
 
     ax.set_xlabel('実行時間（秒）')
     ax.set_ylabel('R²スコア')
-    ax.set_title('精度 vs 実行時間 トレードオフ', fontsize=14, fontweight='bold')
+    ax.set_title('Chronos-Bolt: 精度 vs 実行時間 トレードオフ', fontsize=14, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(f"{save_path}14_chronos_tradeoff.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"{save_path}22_bolt_tradeoff.png", dpi=150, bbox_inches='tight')
     plt.close()
 
     # === 4. 各モデルの予測区間比較 ===
@@ -337,8 +352,8 @@ def plot_all_models_comparison(
             alpha=0.3, color=colors[model_size], label='95%予測区間'
         )
 
-        row = metrics_df[metrics_df['model'] == f"Chronos-{model_size}"].iloc[0]
-        ax.set_title(f"Chronos-{model_size} ({MODEL_PARAMS[model_size]}) | R²={row['R2']:.4f}",
+        row = metrics_df[metrics_df['model'] == f"Bolt-{model_size}"].iloc[0]
+        ax.set_title(f"Bolt-{model_size} ({MODEL_PARAMS[model_size]}) | R²={row['R2']:.4f}",
                      fontsize=12, fontweight='bold')
         ax.set_xlabel('日付')
         ax.set_ylabel('売上（円）')
@@ -346,16 +361,16 @@ def plot_all_models_comparison(
         ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(f"{save_path}14_chronos_all_sizes_intervals.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"{save_path}22_bolt_all_sizes_intervals.png", dpi=150, bbox_inches='tight')
     plt.close()
 
-    print(f"\n✅ 比較グラフを保存しました（14_chronos_*.png）")
+    print(f"\n✅ 比較グラフを保存しました（22_bolt_*.png）")
 
 
 def print_summary(metrics_df: pd.DataFrame) -> None:
     """サマリーを表示"""
     print("\n" + "=" * 60)
-    print("🏆 Chronos モデルサイズ比較 サマリー")
+    print("🏆 Chronos-Bolt モデルサイズ比較 サマリー")
     print("=" * 60)
 
     print("\n📊 評価結果一覧:")
@@ -383,21 +398,28 @@ def print_summary(metrics_df: pd.DataFrame) -> None:
     print(f"💰 コスパ最良: {best_eff_model}")
 
     print("\n" + "-" * 40)
-    print("📝 モデル選択の指針:")
+    print("📝 Chronos-Bolt モデル選択の指針:")
     print("-" * 40)
     print("""
-・tiny:  プロトタイピング、リアルタイム予測
-・small: 日次バッチ処理、バランス重視
-・base:  精度重視、週次処理
-・large: 最高精度が必要な場合
+⚡ Chronos-Bolt は従来Chronosより最大250倍高速！
+
+・tiny:  超高速処理、エッジデバイス向け
+・mini:  軽量かつ実用的、リアルタイム処理
+・small: バランス最良、日次バッチ処理
+・base:  最高精度、重要な予測タスク
+
+💡 従来Chronosとの使い分け:
+  - リアルタイム性重視 → Bolt
+  - 精度最優先 → 従来Chronos-large
+  - バッチ処理 → Bolt-small or Bolt-base
 """)
 
 
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("🤖 Chronos モデルサイズ比較")
-    print("   tiny / small / base / large")
+    print("⚡ Chronos-Bolt モデルサイズ比較")
+    print("   tiny / mini / small / base")
     print("=" * 60)
 
     # データ読み込み
@@ -421,19 +443,19 @@ def main():
 
     # 結果を保存
     # ベストモデル（R²最高）の予測結果を標準出力として保存
-    best_size = metrics_df.loc[metrics_df['R2'].idxmax(), 'model'].replace('Chronos-', '')
+    best_size = metrics_df.loc[metrics_df['R2'].idxmax(), 'model'].replace('Bolt-', '')
     best_results = all_predictions[best_size]
-    best_results.to_csv("chronos_predictions.csv", index=False)
-    print(f"\n✅ ベストモデル({best_size})の予測結果を chronos_predictions.csv に保存")
+    best_results.to_csv("chronos_bolt_predictions.csv", index=False)
+    print(f"\n✅ ベストモデル({best_size})の予測結果を chronos_bolt_predictions.csv に保存")
 
     # 全サイズの予測結果を保存
     for model_size, results in all_predictions.items():
-        results.to_csv(f"chronos_predictions_{model_size}.csv", index=False)
-    print("✅ 各サイズの予測結果を chronos_predictions_*.csv に保存")
+        results.to_csv(f"chronos_bolt_predictions_{model_size}.csv", index=False)
+    print("✅ 各サイズの予測結果を chronos_bolt_predictions_*.csv に保存")
 
     # メトリクス比較を保存
-    metrics_df.to_csv("chronos_size_comparison.csv", index=False)
-    print("✅ サイズ比較結果を chronos_size_comparison.csv に保存")
+    metrics_df.to_csv("chronos_bolt_size_comparison.csv", index=False)
+    print("✅ サイズ比較結果を chronos_bolt_size_comparison.csv に保存")
 
     return all_predictions, metrics_df
 
